@@ -54,8 +54,7 @@ jobs:
 
       - name: Terraform Apply (Infra Deployment)
         id: apply
-        run: terraform apply -auto-approve \
-          -var "pg_admin_password=${{ secrets.TF_POSTGRES_PASSWORD }}" 
+        run: terraform apply -auto-approve -var "pg_admin_password=${{ secrets.TF_POSTGRES_PASSWORD }}"
         
       - name: Terraform Output
         id: output
