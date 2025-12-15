@@ -2,6 +2,7 @@ variable "resource_group_name" { type = string }
 variable "location" { type = string }
 variable "vnet_cidr" { type = string }
 variable "tags" { type = map(string) }
+variable "subnet_vnet" { type = string }
 
 # Variable complexe pour les règles de sécurité (Étape 6)
 variable "ingress_rules" {
@@ -20,3 +21,4 @@ variable "ingress_rules" {
     error_message = "L'accès '0.0.0.0/0' est interdit sur le port 22 pour des raisons de sécurité."
   }
 }
+

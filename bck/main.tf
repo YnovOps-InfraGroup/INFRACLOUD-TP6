@@ -12,26 +12,9 @@ provider "azurerm" {
   features {}
 }
 
-# Appel du module 'app_static'
-# env/dev/main.tf (Ligne 16)
-module "app_stack" {
-  # Changement : Utilisation du chemin relatif standard (celui qui est le plus fiable)
-  # Nous avions vérifié que celui-ci était correct en termes de structure.
-  source      = "./modules/app-static"
-
-  # Passage de TOUTES les variables du parent au module enfant
-  app_name    = var.app_name
-  environment = var.environment
-  location    = var.location
-  tags        = var.mandatory_tags
-
-  # Nouvelle variable passée à l'étape 6
-  storage_configs = var.storage_configs
-}
-
 # Appel du module Network
 module "network" {
-  source = "./modules/network"
+  source = "../modules/network"
 
   # On utilise le Resource Group qui a été créé par le module app_stack ?
   # Non, le module app_stack crée le RG en interne.
@@ -51,7 +34,7 @@ module "network" {
   ingress_rules       = var.ingress_rules
 
   # On s'assure que le RG existe avant de créer le réseau (dépendance implicite via app_stack)
-  depends_on = [module.app_stack]
+  #depends_on = [module.app_stack]
 }
 # env/dev/main.tf
 
@@ -63,6 +46,6 @@ resource "azurerm_resource_group" "imported_rg" {
   # On ajoute des tags pour voir si Terraform détecte la différence
   tags     = {
     Source = "Imported"
-    Owner  = "Moi"
+    Owner  = "Thibaut"
   }
 }
