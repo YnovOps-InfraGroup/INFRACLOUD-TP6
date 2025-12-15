@@ -8,6 +8,12 @@ on:
   # Permet de lancer le workflow manuellement depuis l'interface GitHub
   workflow_dispatch:
 
+env:
+      ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+      ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+      ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+      ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+
 jobs:
   terraform:
     name: "Terraform Plan & Apply"
@@ -18,8 +24,6 @@ jobs:
 
     steps:
       # 0. Connexion Azure
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
       - name: Login to Azure
         uses: azure/login@v1
         with:
