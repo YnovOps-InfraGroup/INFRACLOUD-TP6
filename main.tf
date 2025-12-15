@@ -6,14 +6,11 @@ data "azurerm_resource_group" "rg" {
 
 data "azurerm_client_config" "current" {}
 
-resource "azurerm_virtual_network" "vnet" {
+data "azurerm_virtual_network" "vnet" {
   name                = "vnet1"
-  location            = data.azurerm_resource_group.rg.location
   resource_group_name = data.azurerm_resource_group.rg.name
-  address_space       = ["10.0.0.0/16"]
 }
 
-# Subnets : Remplacés par des blocs data car gérés par un autre projet
 
 data "azurerm_subnet" "snet_aks" {
   name                 = "Snet-Aks"
@@ -33,7 +30,6 @@ data "azurerm_subnet" "snet_db" {
   virtual_network_name = azurerm_virtual_network.vnet.name
 }
 
-# Fin des Subnets
 
 resource "azurerm_container_registry" "acr" {
   name                = "${var.acr_name_prefix}${random_integer.suffix.result}"
