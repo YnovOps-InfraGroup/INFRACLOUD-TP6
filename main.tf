@@ -10,31 +10,30 @@ resource "azurerm_virtual_network" "vnet" {
   name                = "vnet1"
   location            = data.azurerm_resource_group.rg.location
   resource_group_name = data.azurerm_resource_group.rg.name
-  address_space       = ["10.0.0.0/16"]
+  address_space       = ["10.0.0.0/16"] 
 }
 
-resource "azurerm_subnet" "snet_aks" {
+# Subnets : Remplacés par des blocs data car gérés par un autre projet
+
+data "azurerm_subnet" "snet_aks" {
   name                 = "Snet-Aks"
   resource_group_name  = data.azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.1.0/24"]
-  service_endpoints    = ["Microsoft.ContainerService"]
 }
 
-resource "azurerm_subnet" "snet_admin_agic" {
+data "azurerm_subnet" "snet_admin_agic" {
   name                 = "Snet-ADMIN"
   resource_group_name  = data.azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.3.0/24"]
 }
 
-resource "azurerm_subnet" "snet_db" {
+data "azurerm_subnet" "snet_db" {
   name                 = "Snet-DB"
   resource_group_name  = data.azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.2.0/24"]
-  service_endpoints    = ["Microsoft.Sql"]
 }
+
+# Fin des Subnets
 
 resource "azurerm_container_registry" "acr" {
   name                = "${var.acr_name_prefix}${random_integer.suffix.result}"
@@ -42,7 +41,7 @@ resource "azurerm_container_registry" "acr" {
   location            = data.azurerm_resource_group.rg.location
   sku                 = "Basic"
   admin_enabled       = true
-
+  
   identity {
     type = "SystemAssigned"
   }
@@ -60,6 +59,18 @@ resource "azurerm_key_vault" "akv" {
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
   soft_delete_retention_days = 7
+
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+
+    secret_permissions = [
+      "Get",
+      "List",
+      "Set",
+      "Delete" 
+    ]
+  }
 }
 
 resource "azurerm_key_vault_secret" "pg_password" {
@@ -75,30 +86,22 @@ resource "azurerm_kubernetes_cluster" "aks" {
   dns_prefix          = "n8n-aks"
 
   network_profile {
-    network_plugin = "azure"
-    service_cidr   = "10.10.0.0/16"
-    dns_service_ip = "10.10.0.10"
+    network_plugin     = "azure" 
+    service_cidr       = "10.10.0.0/16" 
+    dns_service_ip     = "10.10.0.10"
   }
 
   default_node_pool {
-    name           = "default"
-    node_count     = 3
-    vm_size        = "Standard_DS2_v2"
-    vnet_subnet_id = azurerm_subnet.snet_aks.id
+    name                 = "default"
+    node_count           = 3
+    vm_size              = "Standard_DS2_v2"
+    vnet_subnet_id       = data.azurerm_subnet.snet_aks.id # Utilise data
   }
 
   identity {
     type = "SystemAssigned"
   }
-
-  /*
-  kubelet_identity {
-    client_id    = azurerm_container_registry.acr.identity[0].principal_id
-    object_id    = azurerm_container_registry.acr.identity[0].principal_id
-    user_assigned_identity_id = null
-  }
-  */
-
+  
   role_based_access_control_enabled = true
 }
 
@@ -120,11 +123,11 @@ resource "azurerm_postgresql_flexible_server" "pg" {
   location               = data.azurerm_resource_group.rg.location
   version                = "14"
   administrator_login    = "n8nadmin"
-  administrator_password = azurerm_key_vault_secret.pg_password.value
+  administrator_password = azurerm_key_vault_secret.pg_password.value 
   storage_mb             = 32768
-  sku_name               = "B_Standard_B2s"
-
-  delegated_subnet_id           = azurerm_subnet.snet_db.id
+  sku_name               = "Burstable_B2s" 
+  
+  delegated_subnet_id           = data.azurerm_subnet.snet_db.id # Utilise data
   public_network_access_enabled = false
   private_dns_zone_id           = azurerm_private_dns_zone.pg_private_dns.id
 }
@@ -154,5 +157,5 @@ output "kube_config" {
 }
 output "redis_primary_key" {
   sensitive = true
-  value     = azurerm_redis_cache.redis.primary_access_key
+  value = azurerm_redis_cache.redis.primary_access_key
 }
