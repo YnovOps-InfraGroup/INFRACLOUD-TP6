@@ -22,7 +22,7 @@ resource "azurerm_network_security_group" "nsg" {
   resource_group_name = var.resource_group_name
   tags                = var.tags
 
-  # Génération dynamique des règles (Étape 6)
+  # Génération dynamique des règles
   dynamic "security_rule" {
     for_each = var.ingress_rules
     content {
@@ -37,4 +37,10 @@ resource "azurerm_network_security_group" "nsg" {
       destination_address_prefix = "*"
     }
   }
+}
+# 4. Association du NSG au Subnet
+# On associe le NSG au subnet créé plus haut, pas au VNet entier.
+resource "azurerm_subnet_network_security_group_association" "nsg_assoc" {
+  subnet_id                 = azurerm_subnet.public.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
 }
