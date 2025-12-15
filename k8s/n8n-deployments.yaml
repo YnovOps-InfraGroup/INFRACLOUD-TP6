@@ -10,7 +10,7 @@ spec:
     matchLabels:
       app: n8n-main
   serviceName: n8n-service
-  replicas: 1 
+  replicas: 2
   template:
     metadata:
       labels:
