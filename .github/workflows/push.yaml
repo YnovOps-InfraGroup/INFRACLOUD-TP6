@@ -18,10 +18,13 @@ jobs:
 
     steps:
       # 0. Connexion Azure
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
 
       # 1. Récupération du code
       - name: Checkout Code
