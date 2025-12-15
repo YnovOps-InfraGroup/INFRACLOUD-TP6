@@ -10,7 +10,7 @@ resource "azurerm_virtual_network" "vnet" {
   name                = "vnet1"
   location            = data.azurerm_resource_group.rg.location
   resource_group_name = data.azurerm_resource_group.rg.name
-  address_space       = ["10.0.0.0/16"] 
+  address_space       = ["10.0.0.0/16"]
 }
 
 resource "azurerm_subnet" "snet_aks" {
@@ -18,10 +18,10 @@ resource "azurerm_subnet" "snet_aks" {
   resource_group_name  = data.azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.1.0/24"]
-  service_endpoints    = ["Microsoft.ContainerService"] 
+  service_endpoints    = ["Microsoft.ContainerService"]
 }
 
-resource "azurerm_subnet" "snet_admin_agic" { 
+resource "azurerm_subnet" "snet_admin_agic" {
   name                 = "Snet-ADMIN"
   resource_group_name  = data.azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
@@ -33,7 +33,7 @@ resource "azurerm_subnet" "snet_db" {
   resource_group_name  = data.azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.2.0/24"]
-  service_endpoints    = ["Microsoft.Sql"] 
+  service_endpoints    = ["Microsoft.Sql"]
 }
 
 resource "azurerm_container_registry" "acr" {
@@ -71,17 +71,17 @@ resource "azurerm_kubernetes_cluster" "aks" {
   dns_prefix          = "n8n-aks"
 
   network_profile {
-    network_plugin     = "azure" 
-    service_cidr       = "10.10.0.0/16" 
+    network_plugin     = "azure"
+    service_cidr       = "10.10.0.0/16"
     dns_service_ip     = "10.10.0.10"
     docker_bridge_cidr = "172.17.0.1/16"
   }
 
   default_node_pool {
-    name                 = "default"
-    node_count           = 3
-    vm_size              = "Standard_DS2_v2"
-    vnet_subnet_id       = azurerm_subnet.snet_aks.id 
+    name           = "default"
+    node_count     = 3
+    vm_size        = "Standard_DS2_v2"
+    vnet_subnet_id = azurerm_subnet.snet_aks.id
   }
 
   identity {
@@ -89,11 +89,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 
   kubelet_identity {
-    client_id    = azurerm_container_registry.acr.identity[0].principal_id
-    object_id    = azurerm_container_registry.acr.identity[0].principal_id
+    client_id                 = azurerm_container_registry.acr.identity[0].principal_id
+    object_id                 = azurerm_container_registry.acr.identity[0].principal_id
     user_assigned_identity_id = null
   }
-  
+
   role_based_access_control_enabled = true
 }
 
@@ -127,13 +127,13 @@ resource "azurerm_postgresql_flexible_server" "pg" {
   location               = data.azurerm_resource_group.rg.location
   version                = "14"
   administrator_login    = "n8nadmin"
-  administrator_password = azurerm_key_vault_secret.pg_password.value 
+  administrator_password = azurerm_key_vault_secret.pg_password.value
   storage_mb             = 32768
   sku_name               = "Standard_D2ds_v4"
-  
+
   network_integration {
-    virtual_network_id = azurerm_virtual_network.vnet.id
-    subnet_id          = azurerm_subnet.snet_db.id
+    virtual_network_id            = azurerm_virtual_network.vnet.id
+    subnet_id                     = azurerm_subnet.snet_db.id
     public_network_access_enabled = false
   }
 }
@@ -164,5 +164,5 @@ output "kube_config" {
 }
 output "redis_primary_key" {
   sensitive = true
-  value = azurerm_redis_cache.redis.primary_access_key
+  value     = azurerm_redis_cache.redis.primary_access_key
 }
