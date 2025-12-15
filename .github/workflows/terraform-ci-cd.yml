@@ -1,0 +1,95 @@
+name: Terraform CI/CD & n8n App Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  TF_WORKING_DIR: . 
+  TF_POSTGRES_USER: n8nadmin 
+
+jobs:
+  terraform_validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      
+      - name: Terraform Format
+        run: terraform fmt -check
+        
+      - name: Terraform Init
+        run: terraform init -backend-config="storage_account_name=stoynovgroup"
+        
+      - name: Terraform Validate
+        run: terraform validate
+
+  deploy_infra_and_app:
+    name: Deploy Infra & App
+    runs-on: ubuntu-latest
+    needs: [terraform_validate]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          
+      - name: Terraform Init
+        run: terraform init -backend-config="storage_account_name=stoynovgroup"
+
+      - name: Terraform Apply (Infra Deployment)
+        id: apply
+        run: terraform apply -auto-approve \
+          -var "pg_admin_password=${{ secrets.TF_POSTGRES_PASSWORD }}" 
+        
+      - name: Terraform Output
+        id: output
+        run: |
+          echo "ACR_SERVER=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
+          echo "KUBE_CONFIG=$(terraform output -raw kube_config)" >> $GITHUB_OUTPUT
+          echo "REDIS_KEY=$(terraform output -raw redis_primary_key)" >> $GITHUB_OUTPUT
+          
+      - name: Build and Push n8n Image to ACR
+        id: build_image
+        uses: azure/acr-build-action@v2
+        with:
+          registry: ${{ steps.output.outputs.ACR_SERVER }}
+          repository: n8n-custom
+          tag: ${{ github.sha }}
+          image-dir: '.'
+      
+      - name: Kubernetes Deploy
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ steps.output.outputs.KUBE_CONFIG }}" > ~/.kube/config
+
+          ENCRYPTION_KEY_B64=$(echo -n "${{ secrets.N8N_ENCRYPTION_KEY }}" | base64)
+          PG_PASS_B64=$(echo -n "${{ secrets.TF_POSTGRES_PASSWORD }}" | base64)
+          REDIS_KEY_B64=$(echo -n "${{ steps.output.outputs.REDIS_KEY }}" | base64)
+          PG_USER_B64=$(echo -n "${{ env.TF_POSTGRES_USER }}" | base64)
+
+          sed -i "s|<N8N_ENCRYPTION_KEY_BASE64>|$ENCRYPTION_KEY_B64|g" ./k8s/n8n-secret.yaml
+          sed -i "s|<DB_USER_BASE64>|$PG_USER_B64|g" ./k8s/n8n-secret.yaml
+          sed -i "s|<DB_PASSWORD_BASE64>|$PG_PASS_B64|g" ./k8s/n8n-secret.yaml
+          sed -i "s|<QUEUE_BULL_REDIS_PASSWORD_BASE64>|$REDIS_KEY_B64|g" ./k8s/n8n-secret.yaml
+          
+          kubectl apply -f ./k8s/n8n-secret.yaml
+          kubectl apply -f ./k8s/n8n-configmap.yaml
+          
+          ACR_PATH="${{ steps.output.outputs.ACR_SERVER }}/n8n-custom:${{ github.sha }}"
+          sed -i "s|REPLACE_IMAGE_WITH_ACR_PATH:TAG|$ACR_PATH|g" ./k8s/n8n-deployments.yaml
+          
+          kubectl apply -f ./k8s/n8n-deployments.yaml
+          kubectl apply -f ./k8s/n8n-services.yaml
+          
+          kubectl rollout status statefulset/n8n-main -n default

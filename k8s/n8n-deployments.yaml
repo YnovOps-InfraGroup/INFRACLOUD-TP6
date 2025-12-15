@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: n8n-main
+  namespace: default
+  labels:
+    app: n8n-main
+spec:
+  selector:
+    matchLabels:
+      app: n8n-main
+  serviceName: n8n-service
+  replicas: 1 
+  template:
+    metadata:
+      labels:
+        app: n8n-main
+    spec:
+      containers:
+      - name: n8n
+        image: REPLACE_IMAGE_WITH_ACR_PATH:TAG
+        ports:
+        - containerPort: 5678
+        
+        envFrom:
+        - configMapRef:
+            name: n8n-config-vars
+        - secretRef:
+            name: n8n-sensitive-secrets
+
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1024Mi"
+        
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 5678
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 5678
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+#workers
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n-workers
+  namespace: default
+  labels:
+    app: n8n-workers
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: n8n-workers
+  template:
+    metadata:
+      labels:
+        app: n8n-workers
+    spec:
+      containers:
+      - name: n8n
+        image: REPLACE_IMAGE_WITH_ACR_PATH:TAG
+        ports:
+        - containerPort: 5678
+        
+        envFrom:
+        - configMapRef:
+            name: n8n-config-vars
+        - secretRef:
+            name: n8n-sensitive-secrets
+            
+        env:
+        - name: N8N_WORKER_PROCESS
+          value: "true"
+        - name: N8N_MAIN_PROCESS
+          value: "false" 
+
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1024Mi"
+        
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 5678
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 5678
+          initialDelaySeconds: 10
+          periodSeconds: 5

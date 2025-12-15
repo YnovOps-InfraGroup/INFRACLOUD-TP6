@@ -1,0 +1,18 @@
+# k8s/n8n-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: n8n-config-vars
+  namespace: default 
+data:
+  EXECUTIONS_MODE: queue
+  DB_TYPE: postgres
+  DB_HOST: "pg-n8n-tf-server.postgres.database.azure.com" 
+  DB_DATABASE: "n8n_db"
+  DB_REDIS_HOST: "redis-n8n-tf-cache.redis.cache.windows.net" 
+  DB_REDIS_PORT: "6379"
+  N8N_HOST: "https://dghwgsebfbgxh5ev.fz78.alb.azure.com" 
+  N8N_INTERNAL_HOST: "http://n8n-service:5678" 
+  N8N_WORKER_CONCURRENCY: "5"
+  N8N_WORKER_PROCESS: "true"
+  N8N_MAIN_PROCESS: "true"
