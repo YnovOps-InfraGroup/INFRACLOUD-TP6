@@ -125,13 +125,12 @@ resource "azurerm_postgresql_flexible_server" "pg" {
   name                   = "pg-n8n-tf-server"
   resource_group_name    = data.azurerm_resource_group.rg.name
   location               = data.azurerm_resource_group.rg.location
-  version                = "14"
+  version                = "17"
   administrator_login    = "n8nadmin"
   administrator_password = azurerm_key_vault_secret.pg_password.value
   storage_mb             = 32768
   sku_name               = "Standard_B2s"
 
-  # Intégration réseau corrigée avec les arguments directs (plus de bloc private_network_access)
   delegated_subnet_id           = azurerm_subnet.snet_db.id
   public_network_access_enabled = false
   private_dns_zone_id           = azurerm_private_dns_zone.pg_private_dns.id
