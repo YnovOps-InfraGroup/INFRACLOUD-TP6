@@ -79,7 +79,7 @@ Pour tester ou modifier l'infrastructure depuis votre poste :
 
 ---
 
-##  Informations Techniques
+###  Informations Techniques
 
 * **Provider Azure** : `hashicorp/azurerm` v4.56.0
 * **Terraform Version** : v1.9.0+
