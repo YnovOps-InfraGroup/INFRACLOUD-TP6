@@ -1,0 +1,152 @@
+name: Terraform CI/CD & n8n App Deploy V2
+on:
+  push:
+    branches:
+      - feat/DEV-Thibaut
+  pull_request:
+    branches:
+      - feat/DEV-Thibaut
+
+env:
+  TF_WORKING_DIR: . 
+  TF_POSTGRES_USER: n8nadmin 
+  # Note: J'ai nettoyé les variables inutilisées ou redondantes
+  ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+  ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+  ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+  ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+
+jobs:
+  # JOB 1 : VALIDATION (Pas de changement majeur)
+  terraform_validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init -backend-config="storage_account_name=stoynovgroup"
+
+      - name: Terraform Format
+        run: terraform fmt -check
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  # JOB 2 : PLAN (Nouveau Job séparé)
+  terraform_plan:
+    name: Plan Infrastructure
+    runs-on: ubuntu-latest
+    needs: [terraform_validate]
+    # On joue le plan sur les PR et sur le push
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="storage_account_name=stoynovgroup"
+
+      # ICI : On génère le plan et on le sauvegarde dans un fichier "tfplan"
+      # On passe les variables ICI, pas au apply
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan -var "pg_admin_password=${{ secrets.TF_POSTGRES_PASSWORD }}"
+
+      # On upload le fichier tfplan pour le job suivant
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: tfplan
+
+  # JOB 3 : APPLY & DEPLOY (Avec validation humaine)
+  deploy_infra_and_app:
+    name: Deploy Infra & App
+    runs-on: ubuntu-latest
+    needs: [terraform_plan]
+    # Ce job ne se lance que sur un push (pas sur une PR), après validation
+    if: github.ref == 'refs/heads/feat/DEV-goat' && github.event_name == 'push'
+
+    # C'est cette ligne qui déclenche la demande de validation humaine
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="storage_account_name=stoynovgroup"
+
+      # On récupère le fichier tfplan du job précédent
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: .
+
+      # On applique le plan chargé. Note: plus besoin de -var ni de -auto-approve (implicite avec un fichier plan)
+      - name: Terraform Apply
+        run: terraform apply tfplan
+
+      # --- À partir d'ici, c'est ton code original pour le déploiement App ---
+
+      - name: Terraform Output
+        id: output
+        # Le output fonctionne car le tfstate a été mis à jour par le apply juste avant
+        run: |
+          echo "ACR_SERVER=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
+          echo "KUBE_CONFIG=$(terraform output -raw kube_config)" >> $GITHUB_OUTPUT
+          echo "REDIS_KEY=$(terraform output -raw redis_primary_key)" >> $GITHUB_OUTPUT
+
+      - name: ACR Docker Login
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ steps.output.outputs.ACR_SERVER }}
+          username: ${{ secrets.AZURE_CLIENT_ID }}
+          password: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: Build and Push n8n Image to ACR
+        id: build_image
+        env:
+          ACR_PATH: ${{ steps.output.outputs.ACR_SERVER }}/n8n-custom:${{ github.sha }}
+        run: |
+          docker build -t $ACR_PATH .
+          docker push $ACR_PATH
+
+      - name: Kubernetes Deploy
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ steps.output.outputs.KUBE_CONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+          ENCRYPTION_KEY_B64=$(echo -n "${{ secrets.N8N_ENCRYPTION_KEY }}" | base64)
+          PG_PASS_B64=$(echo -n "${{ secrets.TF_POSTGRES_PASSWORD }}" | base64)
+          REDIS_KEY_B64=$(echo -n "${{ steps.output.outputs.REDIS_KEY }}" | base64)
+          PG_USER_B64=$(echo -n "${{ env.TF_POSTGRES_USER }}" | base64)
+
+          sed -i "s|<N8N_ENCRYPTION_KEY_BASE64>|$ENCRYPTION_KEY_B64|g" ./k8s/n8n-secret.yaml
+          sed -i "s|<DB_USER_BASE64>|$PG_USER_B64|g" ./k8s/n8n-secret.yaml
+          sed -i "s|<DB_PASSWORD_BASE64>|$PG_PASS_B64|g" ./k8s/n8n-secret.yaml
+          sed -i "s|<QUEUE_BULL_REDIS_PASSWORD_BASE64>|$REDIS_KEY_B64|g" ./k8s/n8n-secret.yaml
+          
+          kubectl apply -f ./k8s/n8n-secret.yaml
+          kubectl apply -f ./k8s/n8n-configmap.yaml
+          
+          ACR_PATH="${{ steps.output.outputs.ACR_SERVER }}/n8n-custom:${{ github.sha }}"
+          sed -i "s|REPLACE_IMAGE_WITH_ACR_PATH:TAG|$ACR_PATH|g" ./k8s/n8n-deployments.yaml
+          
+          kubectl apply -f ./k8s/n8n-deployments.yaml
+          kubectl apply -f ./k8s/n8n-services.yaml
+          
+          kubectl rollout status statefulset/n8n-main -n default --timeout=300s

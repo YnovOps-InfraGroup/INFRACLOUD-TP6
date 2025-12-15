@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: n8n-service 
+  namespace: default
+spec:
+  type: ClusterIP 
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5678 
+      name: http
+  selector:
+    app: n8n-main 
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: n8n-worker-service
+  namespace: default
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5678
+      name: http
+  selector:
+    app: n8n-workers
