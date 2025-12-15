@@ -74,7 +74,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
     network_plugin = "azure"
     service_cidr   = "10.10.0.0/16"
     dns_service_ip = "10.10.0.10"
-    # Ligne docker_bridge_cidr supprimée
+    # L'argument docker_bridge_cidr a été supprimé
   }
 
   default_node_pool {
@@ -131,12 +131,10 @@ resource "azurerm_postgresql_flexible_server" "pg" {
   storage_mb             = 32768
   sku_name               = "Standard_D2ds_v4"
 
-  # network_integration remplacé par private_network_access
-  private_network_access {
-    virtual_network_id            = azurerm_virtual_network.vnet.id
-    subnet_id                     = azurerm_subnet.snet_db.id
-    public_network_access_enabled = false
-  }
+  # Intégration réseau corrigée avec les arguments directs (plus de bloc private_network_access)
+  delegated_subnet_id           = azurerm_subnet.snet_db.id
+  public_network_access_enabled = false
+  private_dns_zone_id           = azurerm_private_dns_zone.pg_private_dns.id
 }
 
 resource "azurerm_postgresql_flexible_server_database" "n8n_db" {
@@ -153,7 +151,7 @@ resource "azurerm_redis_cache" "redis" {
   capacity            = 1
   family              = "C"
   sku_name            = "Basic"
-  # Ligne enable_non_ssl_port supprimée
+  # L'argument enable_non_ssl_port a été supprimé
 }
 
 output "acr_login_server" {
