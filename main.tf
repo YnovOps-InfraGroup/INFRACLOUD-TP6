@@ -129,7 +129,7 @@ resource "azurerm_postgresql_flexible_server" "pg" {
   administrator_login    = "n8nadmin"
   administrator_password = azurerm_key_vault_secret.pg_password.value
   storage_mb             = 32768
-  sku_name               = "Standard_B2s"
+  sku_name               = "B_Standard_B2s"
 
   delegated_subnet_id           = azurerm_subnet.snet_db.id
   public_network_access_enabled = false
