@@ -10,7 +10,7 @@ resource "azurerm_virtual_network" "vnet" {
   name                = "vnet1"
   location            = data.azurerm_resource_group.rg.location
   resource_group_name = data.azurerm_resource_group.rg.name
-  address_space       = ["10.0.0.0/16"] 
+  address_space       = ["10.0.0.0/16"]
 }
 
 # Subnets : Remplacés par des blocs data car gérés par un autre projet
@@ -41,7 +41,7 @@ resource "azurerm_container_registry" "acr" {
   location            = data.azurerm_resource_group.rg.location
   sku                 = "Basic"
   admin_enabled       = true
-  
+
   identity {
     type = "SystemAssigned"
   }
@@ -68,7 +68,7 @@ resource "azurerm_key_vault" "akv" {
       "Get",
       "List",
       "Set",
-      "Delete" 
+      "Delete"
     ]
   }
 }
@@ -86,22 +86,22 @@ resource "azurerm_kubernetes_cluster" "aks" {
   dns_prefix          = "n8n-aks"
 
   network_profile {
-    network_plugin     = "azure" 
-    service_cidr       = "10.10.0.0/16" 
-    dns_service_ip     = "10.10.0.10"
+    network_plugin = "azure"
+    service_cidr   = "10.10.0.0/16"
+    dns_service_ip = "10.10.0.10"
   }
 
   default_node_pool {
-    name                 = "default"
-    node_count           = 3
-    vm_size              = "Standard_DS2_v2"
-    vnet_subnet_id       = data.azurerm_subnet.snet_aks.id # Utilise data
+    name           = "default"
+    node_count     = 3
+    vm_size        = "Standard_DS2_v2"
+    vnet_subnet_id = data.azurerm_subnet.snet_aks.id # Utilise data
   }
 
   identity {
     type = "SystemAssigned"
   }
-  
+
   role_based_access_control_enabled = true
 }
 
@@ -123,10 +123,10 @@ resource "azurerm_postgresql_flexible_server" "pg" {
   location               = data.azurerm_resource_group.rg.location
   version                = "14"
   administrator_login    = "n8nadmin"
-  administrator_password = azurerm_key_vault_secret.pg_password.value 
+  administrator_password = azurerm_key_vault_secret.pg_password.value
   storage_mb             = 32768
-  sku_name               = "Burstable_B2s" 
-  
+  sku_name               = "B_Standard_B2s"
+
   delegated_subnet_id           = data.azurerm_subnet.snet_db.id # Utilise data
   public_network_access_enabled = false
   private_dns_zone_id           = azurerm_private_dns_zone.pg_private_dns.id
@@ -157,5 +157,5 @@ output "kube_config" {
 }
 output "redis_primary_key" {
   sensitive = true
-  value = azurerm_redis_cache.redis.primary_access_key
+  value     = azurerm_redis_cache.redis.primary_access_key
 }
