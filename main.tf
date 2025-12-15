@@ -15,19 +15,19 @@ data "azurerm_virtual_network" "vnet" {
 data "azurerm_subnet" "snet_aks" {
   name                 = "Snet-Aks"
   resource_group_name  = data.azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
+  virtual_network_name = data.azurerm_virtual_network.vnet.name
 }
 
 data "azurerm_subnet" "snet_admin_agic" {
   name                 = "Snet-ADMIN"
   resource_group_name  = data.azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
+  virtual_network_name = data.azurerm_virtual_network.vnet.name
 }
 
 data "azurerm_subnet" "snet_db" {
   name                 = "Snet-DB"
   resource_group_name  = data.azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
+  virtual_network_name = data.azurerm_virtual_network.vnet.name
 }
 
 
@@ -110,7 +110,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "pg_dns_link" {
   name                  = "link-to-vnet1"
   resource_group_name   = data.azurerm_resource_group.rg.name
   private_dns_zone_name = azurerm_private_dns_zone.pg_private_dns.name
-  virtual_network_id    = azurerm_virtual_network.vnet.id
+  virtual_network_id    = data.azurerm_virtual_network.vnet.id
 }
 
 resource "azurerm_postgresql_flexible_server" "pg" {
