@@ -17,6 +17,14 @@ resource "azurerm_key_vault" "akv" {
       "List",
       "Set",
       "Delete"
+]
+  }
+  lifecycle {
+    # 💥 SOLUTION : Ignorer tous les changements APRES la création
+    # Si d'autres politiques sont ajoutées manuellement ou par d'autres scripts,
+    # Terraform ignorera les changements sur la liste complète des politiques.
+    ignore_changes = [
+      access_policy
     ]
   }
 }
