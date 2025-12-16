@@ -1,4 +1,4 @@
-name: Terraform CI/CD & n8n App Deploy V2
+name: n8n
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  TF_WORKING_DIR: ./terraform
+  TF_WORKING_DIR: ../../terraform
   TF_POSTGRES_USER: n8nadmin 
   ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
   ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
