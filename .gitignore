@@ -1,5 +1,12 @@
 # Local .terraform directories
 .terraform/
+# terraform files
+Terraform/.terraform/providers/*
+*.tfstate
+*.tfstate.*
+.terraform*
+ssh/id_rsa
+*ssh*
 
 # .tfstate files
 *.tfstate

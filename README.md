@@ -1,6 +1,4 @@
-<<<<<<< HEAD
-voici une documentationn
-=======
+
 # Infrastructure Réseau Azure (N8N - AKS)
 
 Ce dépôt contient le code **Terraform** permettant de déployer l'infrastructure réseau nécessaire pour le projet N8N sur Azure Kubernetes Service (AKS).
