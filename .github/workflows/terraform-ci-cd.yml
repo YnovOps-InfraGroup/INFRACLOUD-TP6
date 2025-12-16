@@ -57,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: tfplan
+          path: ../../terraform/tfplan
 
   deploy_infra_and_app:
     name: Deploy Infra & App
@@ -83,7 +83,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tfplan
-          path: ./terraform/
+          path: ../../terraform/
 
       - name: Terraform Apply
         run: terraform apply tfplan
