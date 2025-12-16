@@ -1,5 +1,5 @@
 name: n8n
-
+ 
 on:
   push:
     branches:
@@ -7,132 +7,147 @@ on:
   pull_request:
     branches:
       - main
-
+ 
 env:
-  TF_WORKING_DIR: ../../terraform
+  # On retire TF_WORKING_DIR car on va le gérer nativement avec working-directory
   TF_POSTGRES_USER: n8nadmin 
   ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
   ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
   ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
   ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
-
+ 
 jobs:
   terraform_validate:
     name: Validate Terraform
     runs-on: ubuntu-latest
+    # Force toutes les étapes de ce job à s'exécuter dans le dossier terraform
+    defaults:
+      run:
+        working-directory: ./terraform
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
-
+ 
       - name: Terraform Init
         run: terraform init -backend-config="storage_account_name=stoynovgroup"
-
+ 
       - name: Terraform fmt
-        run: terraform fmt -check 
-
+        run: terraform fmt -check
+ 
       - name: Terraform Validate
         run: terraform validate
-
+ 
   terraform_plan:
     name: Plan
     runs-on: ubuntu-latest
     needs: [terraform_validate]
-
+    # Force toutes les étapes de ce job à s'exécuter dans le dossier terraform
+    defaults:
+      run:
+        working-directory: ./terraform
+ 
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
-
+ 
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
+ 
       - name: Terraform Init
         run: terraform init -backend-config="storage_account_name=stoynovgroup"
-
+ 
       - name: Terraform Plan
+        # Le fichier tfplan sera créé dans ./terraform/tfplan
         run: terraform plan -out=tfplan -var "pg_admin_password=${{ secrets.TF_POSTGRES_PASSWORD }}"
-
+ 
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: ../../terraform/tfplan
-
+          # On spécifie le chemin complet car l'action s'exécute depuis la racine
+          path: ./terraform/tfplan
+ 
   deploy_infra_and_app:
     name: Deploy Infra & App
     runs-on: ubuntu-latest
     needs: [terraform_plan]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     environment: production
-
+ 
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
-
+ 
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
+ 
+      # --- PARTIE TERRAFORM (Doit s'exécuter dans ./terraform) ---
       - name: Terraform Init
+        working-directory: ./terraform
         run: terraform init -backend-config="storage_account_name=stoynovgroup"
-
+ 
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
         with:
           name: tfplan
-          path: ../../terraform/
-
+          path: ./terraform/
+ 
       - name: Terraform Apply
+        working-directory: ./terraform
         run: terraform apply tfplan
-
+ 
       - name: Terraform Output
         id: output
+        working-directory: ./terraform
         run: |
           echo "ACR_SERVER=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
           echo "KUBE_CONFIG=$(terraform output -raw kube_config)" >> $GITHUB_OUTPUT
           echo "REDIS_KEY=$(terraform output -raw redis_primary_key)" >> $GITHUB_OUTPUT
-
+ 
+      # --- PARTIE DOCKER & K8S (S'exécute à la racine) ---
+ 
       - name: ACR Login
         uses: azure/docker-login@v2
         with:
           login-server: ${{ steps.output.outputs.ACR_SERVER }}
           username: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
           password: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
-
+ 
       - name: Build and Push Image to ACR
         id: build_image
         env:
           ACR_PATH: ${{ steps.output.outputs.ACR_SERVER }}/n8n-custom:${{ github.sha }}
+        # Docker build a besoin du contexte racine (.)
         run: |
           docker build -t $ACR_PATH .
           docker push $ACR_PATH
-
+ 
       - name: Kubernetes
+        # Pas de working-directory ici, on reste à la racine pour accéder au dossier ./k8s/
         run: |
           mkdir -p ~/.kube
           echo "${{ steps.output.outputs.KUBE_CONFIG }}" > ~/.kube/config
           chmod 600 ~/.kube/config
-
+ 
           ENCRYPTION_KEY_B64=$(echo -n "${{ secrets.N8N_ENCRYPTION_KEY }}" | base64)
           PG_PASS_B64=$(echo -n "${{ secrets.TF_POSTGRES_PASSWORD }}" | base64)
           REDIS_KEY_B64=$(echo -n "${{ steps.output.outputs.REDIS_KEY }}" | base64)
           PG_USER_B64=$(echo -n "${{ env.TF_POSTGRES_USER }}" | base64)
-
+ 
+          # Attention: sed sur Linux (GitHub Actions) n'a pas besoin de '' après -i (contrairement à Mac)
           sed -i "s|<N8N_ENCRYPTION_KEY_BASE64>|$ENCRYPTION_KEY_B64|g" ./k8s/n8n-secret.yaml
           sed -i "s|<DB_USER_BASE64>|$PG_USER_B64|g" ./k8s/n8n-secret.yaml
           sed -i "s|<DB_PASSWORD_BASE64>|$PG_PASS_B64|g" ./k8s/n8n-secret.yaml
           sed -i "s|<QUEUE_BULL_REDIS_PASSWORD_BASE64>|$REDIS_KEY_B64|g" ./k8s/n8n-secret.yaml
-          
           kubectl apply -f ./k8s/n8n-secret.yaml
           kubectl apply -f ./k8s/n8n-configmap.yaml
-          
           ACR_PATH="${{ steps.output.outputs.ACR_SERVER }}/n8n-custom:${{ github.sha }}"
           sed -i "s|REPLACE_IMAGE_WITH_ACR_PATH:TAG|$ACR_PATH|g" ./k8s/n8n-deployments.yaml
-          
           kubectl apply -f ./k8s/n8n-deployments.yaml
           kubectl apply -f ./k8s/n8n-services.yaml
-          
+          # Vérification du déploiement
           kubectl rollout status statefulset/n8n-main -n default --timeout=300s
