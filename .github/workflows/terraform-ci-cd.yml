@@ -106,11 +106,9 @@ jobs:
         run: |
           echo "ACR_SERVER=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
           echo "REDIS_KEY=$(terraform output -raw redis_primary_key)" >> $GITHUB_OUTPUT
-
-          # Solution pour le multiline (Kube Config)
-          echo "KUBE_CONFIG<<EOF" >> $GITHUB_OUTPUT
-          terraform output -raw kube_config >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # On écrit la config directement dans un fichier à la racine du projet (../)
+          terraform output -raw kube_config > ../kubeconfig.yaml
  
       # --- PARTIE DOCKER & K8S (S'exécute à la racine) ---
  
@@ -134,7 +132,7 @@ jobs:
         # Pas de working-directory ici, on reste à la racine pour accéder au dossier ./k8s/
         run: |
           mkdir -p ~/.kube
-          echo "${{ steps.output.outputs.KUBE_CONFIG }}" > ~/.kube/config
+          mv kubeconfig.yaml ~/.kube/config
           chmod 600 ~/.kube/config
  
           ENCRYPTION_KEY_B64=$(echo -n "${{ secrets.N8N_ENCRYPTION_KEY }}" | base64)
@@ -147,11 +145,15 @@ jobs:
           sed -i "s|<DB_USER_BASE64>|$PG_USER_B64|g" ./k8s/n8n-secret.yaml
           sed -i "s|<DB_PASSWORD_BASE64>|$PG_PASS_B64|g" ./k8s/n8n-secret.yaml
           sed -i "s|<QUEUE_BULL_REDIS_PASSWORD_BASE64>|$REDIS_KEY_B64|g" ./k8s/n8n-secret.yaml
+          
           kubectl apply -f ./k8s/n8n-secret.yaml
           kubectl apply -f ./k8s/n8n-configmap.yaml
+          
           ACR_PATH="${{ steps.output.outputs.ACR_SERVER }}/n8n-custom:${{ github.sha }}"
           sed -i "s|REPLACE_IMAGE_WITH_ACR_PATH:TAG|$ACR_PATH|g" ./k8s/n8n-deployments.yaml
+          
           kubectl apply -f ./k8s/n8n-deployments.yaml
           kubectl apply -f ./k8s/n8n-services.yaml
+          
           # Vérification du déploiement
           kubectl rollout status statefulset/n8n-main -n default --timeout=300s
