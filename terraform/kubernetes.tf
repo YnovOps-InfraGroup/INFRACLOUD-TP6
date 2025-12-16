@@ -17,3 +17,27 @@ resource "kubernetes_namespace" "n8n" {
 
   depends_on = [azurerm_kubernetes_cluster.aks]
 }
+
+# Créer un imagePullSecret pour l'ACR dans le namespace n8n
+resource "kubernetes_secret" "acr_credentials" {
+  metadata {
+    name      = "acr-secret"
+    namespace = kubernetes_namespace.n8n.metadata[0].name
+  }
+
+  type = "kubernetes.io/dockercfg"
+
+  data = {
+    ".dockercfg" = jsonencode({
+      (azurerm_container_registry.acr.login_server) = {
+        username = azurerm_container_registry.acr.admin_username
+        password = azurerm_container_registry.acr.admin_password
+        email    = "n8n@example.com"
+        auth     = base64encode("${azurerm_container_registry.acr.admin_username}:${azurerm_container_registry.acr.admin_password}")
+      }
+    })
+  }
+
+  depends_on = [kubernetes_namespace.n8n]
+}
+
