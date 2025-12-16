@@ -60,7 +60,10 @@ jobs:
  
       - name: Terraform Plan
         # Le fichier tfplan sera créé dans ./terraform/tfplan
-        run: terraform plan -out=tfplan -var "pg_admin_password=${{ secrets.TF_POSTGRES_PASSWORD }}"
+        run: |
+          terraform plan -out=tfplan \
+            -var "pg_admin_password=${{ secrets.TF_POSTGRES_PASSWORD }}" \
+            -var "n8n_encryption_key=${{ secrets.N8N_ENCRYPTION_KEY }}"
  
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
@@ -105,7 +108,6 @@ jobs:
         working-directory: ./terraform
         run: |
           echo "ACR_SERVER=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
-          echo "REDIS_KEY=$(terraform output -raw redis_primary_key)" >> $GITHUB_OUTPUT
           
           # On écrit la config directement dans un fichier à la racine du projet (../)
           terraform output -raw kube_config > ../kubeconfig.yaml
@@ -128,26 +130,16 @@ jobs:
           docker build -t $ACR_PATH .
           docker push $ACR_PATH
  
-      - name: Kubernetes
-        # Pas de working-directory ici, on reste à la racine pour accéder au dossier ./k8s/
+      - name: Deploy Kubernetes Resources
         run: |
           mkdir -p ~/.kube
           mv kubeconfig.yaml ~/.kube/config
           chmod 600 ~/.kube/config
- 
-          ENCRYPTION_KEY_B64=$(echo -n "${{ secrets.N8N_ENCRYPTION_KEY }}" | base64)
-          PG_PASS_B64=$(echo -n "${{ secrets.TF_POSTGRES_PASSWORD }}" | base64)
-          REDIS_KEY_B64=$(echo -n "${{ steps.output.outputs.REDIS_KEY }}" | base64)
-          PG_USER_B64=$(echo -n "${{ env.TF_POSTGRES_USER }}" | base64)
- 
-          # Attention: sed sur Linux (GitHub Actions) n'a pas besoin de '' après -i (contrairement à Mac)
-          sed -i "s|<N8N_ENCRYPTION_KEY_BASE64>|$ENCRYPTION_KEY_B64|g" ./k8s/n8n-secret.yaml
-          sed -i "s|<DB_USER_BASE64>|$PG_USER_B64|g" ./k8s/n8n-secret.yaml
-          sed -i "s|<DB_PASSWORD_BASE64>|$PG_PASS_B64|g" ./k8s/n8n-secret.yaml
-          sed -i "s|<QUEUE_BULL_REDIS_PASSWORD_BASE64>|$REDIS_KEY_B64|g" ./k8s/n8n-secret.yaml
           
-          kubectl apply -f ./k8s/n8n-secret.yaml
-          kubectl apply -f ./k8s/n8n-configmap.yaml
+          # Les ConfigMaps et Secrets sont maintenant gérés par Terraform
+          # On déploie uniquement les Deployments et Services
+          kubectl apply -f ./k8s/n8n-deployments.yaml
+          kubectl apply -f ./k8s/n8n-services.yaml
           
           ACR_PATH="${{ steps.output.outputs.ACR_SERVER }}/n8n-custom:${{ github.sha }}"
           sed -i "s|REPLACE_IMAGE_WITH_ACR_PATH:TAG|$ACR_PATH|g" ./k8s/n8n-deployments.yaml

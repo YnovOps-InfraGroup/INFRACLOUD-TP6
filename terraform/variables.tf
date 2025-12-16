@@ -1,7 +1,7 @@
 variable "location" {
   description = "Région Azure pour le déploiement."
   type        = string
-  default     = "france-central"
+  default     = "francecentral"
 }
 
 variable "resource_group_name" {
@@ -20,4 +20,17 @@ variable "pg_admin_password" {
   description = "Mdp admin postgreSQL"
   type        = string
   sensitive   = true
+}
+
+variable "pg_admin_user" {
+  description = "Nom d'utilisateur admin PostgreSQL"
+  type        = string
+  default     = "n8nadmin"
+}
+
+variable "n8n_encryption_key" {
+  description = "Clé de chiffrement N8N (optionnelle, générée si non fournie)"
+  type        = string
+  sensitive   = true
+  default     = ""
 }

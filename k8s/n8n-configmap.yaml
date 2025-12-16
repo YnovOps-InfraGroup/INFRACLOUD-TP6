@@ -1,9 +1,22 @@
-# k8s/n8n-configmap.yaml
+# ⚠️⚠️⚠️ FICHIER DEPRECATED - NE PLUS UTILISER ⚠️⚠️⚠️
+#
+# Ce fichier n'est plus utilisé !
+# Le ConfigMap est maintenant géré par Terraform dans:
+#   ../terraform/kubernetes-resources.tf
+#
+# RAISON: Les valeurs (hosts, ports) sont maintenant récupérées
+# automatiquement depuis les ressources Terraform pour éviter
+# les erreurs et assurer la cohérence.
+#
+# Pour plus d'informations, voir: CONFIGURATION_DYNAMIQUE.md
+# ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+
+# k8s/n8n-configmap.yaml (HISTORIQUE - NE PLUS UTILISER)
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: n8n-config-vars
-  namespace: default 
+  namespace: n8n 
 data:
   EXECUTIONS_MODE: queue
 
