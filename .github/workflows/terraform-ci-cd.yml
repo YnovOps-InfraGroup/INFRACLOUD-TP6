@@ -3,10 +3,10 @@ name: Terraform CI/CD & n8n App Deploy V2
 on:
   push:
     branches:
-      - feat/DEV-goat 
+      - main
   pull_request:
     branches:
-      - feat/DEV-goat 
+      - main
 
 env:
   TF_WORKING_DIR: . 
@@ -63,7 +63,7 @@ jobs:
     name: Deploy Infra & App
     runs-on: ubuntu-latest
     needs: [terraform_plan]
-    if: github.ref == 'refs/heads/feat/DEV-goat' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     environment: production
 
