@@ -23,9 +23,9 @@ resource "azurerm_subnet" "Subnet1" {
 }
 
 resource "azurerm_application_load_balancer_subnet_association" "albsubnet" {
-  name = "vnet-link"
-  application_load_balancer_id =  "/subscriptions/cd3fa1ba-5253-4f92-8571-9b1fde759c19/resourceGroups/RG-N8N-AKS/providers/Microsoft.ServiceNetworking/trafficControllers/AGC-N8N-AKS"
-  subnet_id = azurerm_subnet.Subnet1.id
+  name                         = "vnet-link"
+  application_load_balancer_id = "/subscriptions/cd3fa1ba-5253-4f92-8571-9b1fde759c19/resourceGroups/RG-N8N-AKS/providers/Microsoft.ServiceNetworking/trafficControllers/AGC-N8N-AKS"
+  subnet_id                    = azurerm_subnet.Subnet1.id
 }
 resource "azurerm_subnet" "Subnet2" {
   name                 = "Snet-DB"
