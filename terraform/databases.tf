@@ -17,7 +17,6 @@ resource "azurerm_postgresql_flexible_server" "pg" {
   location               = data.azurerm_resource_group.rg.location
   zone                   = "1"
   version                = "14"
-  zone                   = "1"
   administrator_login    = "n8nadmin"
   administrator_password = azurerm_key_vault_secret.pg_password.value
   storage_mb             = 32768
