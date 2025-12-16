@@ -17,7 +17,7 @@ resource "azurerm_key_vault" "akv" {
       "List",
       "Set",
       "Delete"
-]
+    ]
   }
   lifecycle {
     # 💥 SOLUTION : Ignorer tous les changements APRES la création
