@@ -1,0 +1,19 @@
+# ========================================
+# EXEMPLE DE FICHIER DE VARIABLES
+# ========================================
+# Copier ce fichier vers terraform.tfvars et remplir avec vos valeurs
+
+# Localisation Azure
+location = "francecentral"
+
+# Nom du Resource Group (doit exister)
+resource_group_name = "RG-N8N-AKS"
+
+# Préfixe pour le nom de l'ACR (sera suivi d'un nombre aléatoire)
+acr_name_prefix = "acrn8ntf"
+
+# Mot de passe admin PostgreSQL (sensible)
+# IMPORTANT: Utiliser un mot de passe fort avec:
+# - Au moins 12 caractères
+# - Majuscules, minuscules, chiffres et caractères spéciaux
+pg_admin_password = "VotreMotDePasseSecurise123!"

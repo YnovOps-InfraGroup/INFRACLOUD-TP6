@@ -60,3 +60,13 @@ resource "azurerm_application_load_balancer_subnet_association" "albsubnet" {
   application_load_balancer_id = azurerm_application_load_balancer.alb.id
   subnet_id                    = azurerm_subnet.Subnet_ALB.id
 }
+
+resource "azurerm_application_load_balancer_frontend" "alb_frontend" {
+  name                         = "n8n-frontend"
+  application_load_balancer_id = azurerm_application_load_balancer.alb.id
+
+  tags = {
+    environment = "DEV"
+    application = "n8n"
+  }
+}

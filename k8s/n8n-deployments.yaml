@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: n8n-main
-  namespace: default
+  namespace: n8n
   labels:
     app: n8n-main
 spec:
@@ -55,7 +55,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: n8n-workers
-  namespace: default
+  namespace: n8n
   labels:
     app: n8n-workers
 spec:
