@@ -99,14 +99,18 @@ jobs:
       - name: Terraform Apply
         working-directory: ./terraform
         run: terraform apply tfplan
- 
+
       - name: Terraform Output
         id: output
         working-directory: ./terraform
         run: |
           echo "ACR_SERVER=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
-          echo "KUBE_CONFIG=$(terraform output -raw kube_config)" >> $GITHUB_OUTPUT
           echo "REDIS_KEY=$(terraform output -raw redis_primary_key)" >> $GITHUB_OUTPUT
+
+          # Solution pour le multiline (Kube Config)
+          echo "KUBE_CONFIG<<EOF" >> $GITHUB_OUTPUT
+          terraform output -raw kube_config >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
  
       # --- PARTIE DOCKER & K8S (S'exécute à la racine) ---
  
