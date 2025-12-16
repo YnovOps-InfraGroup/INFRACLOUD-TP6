@@ -15,6 +15,7 @@ resource "azurerm_postgresql_flexible_server" "pg" {
   name                   = "pg-n8n-tf-server"
   resource_group_name    = data.azurerm_resource_group.rg.name
   location               = data.azurerm_resource_group.rg.location
+  zone                   = "1"
   version                = "14"
   zone                   = "1"
   administrator_login    = "n8nadmin"
