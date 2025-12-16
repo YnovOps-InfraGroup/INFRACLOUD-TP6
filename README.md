@@ -5,7 +5,7 @@ Ce dépôt contient le code **Terraform** permettant de déployer l'infrastructu
 
 L'état de l'infrastructure (State) est stocké dans un backend distant sur Azure Storage.
 
-##  Architecture
+###  Architecture
 
 Le code déploie un **Virtual Network (VNet)** segmenté en plusieurs sous-réseaux pour isoler les charges de travail.
 
