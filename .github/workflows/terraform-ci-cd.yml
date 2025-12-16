@@ -25,13 +25,13 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        run: terraform init -chdir=./terraform-backend-config="storage_account_name=stoynovgroup"
+        run: terraform init -backend-config="storage_account_name=stoynovgroup"
 
       - name: Terraform fmt
-        run: terraform fmt -chdir=./terraform -check 
+        run: terraform fmt -check 
 
       - name: Terraform Validate
-        run: terraform -chdir=./terraform validate
+        run: terraform validate
 
   terraform_plan:
     name: Plan
