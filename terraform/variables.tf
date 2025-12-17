@@ -34,3 +34,8 @@ variable "n8n_encryption_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "subscription_id" {
+  description = "ID de l'abonnement Azure"
+  type        = string
+}
