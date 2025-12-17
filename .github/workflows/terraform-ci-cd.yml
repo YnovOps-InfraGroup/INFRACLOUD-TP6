@@ -7,6 +7,11 @@ on:
   pull_request:
     branches:
       - main
+
+# Empêche les déploiements concurrents pour éviter les lock conflicts
+concurrency:
+  group: terraform-deployment
+  cancel-in-progress: false
  
 env:
   # On retire TF_WORKING_DIR car on va le gérer nativement avec working-directory
