@@ -19,7 +19,7 @@ env:
 jobs:
   terraform_fmt:
     name: Format Terraform
-    runs-on: Vm-runner
+    runs-on: self-hosted
     defaults:
       run:
         working-directory: ./terraform
@@ -46,7 +46,7 @@ jobs:
 
   terraform_validate:
     name: Validate Terraform
-    runs-on: Vm-runner
+    runs-on: self-hosted
     defaults:
       run:
         working-directory: ./terraform
@@ -71,7 +71,7 @@ jobs:
  
   terraform_plan:
     name: Plan
-    runs-on: Vm-runner
+    runs-on: self-hosted
     needs: [terraform_fmt, terraform_validate]
     defaults:
       run:
@@ -112,7 +112,7 @@ jobs:
  
   deploy_infra_and_app:
     name: Deploy Infra & App
-    runs-on: Vm-runner
+    runs-on: self-hosted
     needs: [terraform_plan]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
