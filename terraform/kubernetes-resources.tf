@@ -16,20 +16,37 @@ resource "kubernetes_config_map" "n8n_config" {
     EXECUTIONS_MODE = "queue"
 
     # Configuration PostgreSQL (valeurs dynamiques depuis Terraform)
-    DB_TYPE     = "postgres"
-    DB_HOST     = azurerm_postgresql_flexible_server.pg.fqdn
-    DB_DATABASE = azurerm_postgresql_flexible_server_database.n8n_db.name
-    DB_PORT     = "5432"
+    DB_TYPE                               = "postgresdb"
+    DB_POSTGRESDB_HOST                    = azurerm_postgresql_flexible_server.pg.fqdn
+    DB_POSTGRESDB_DATABASE                = azurerm_postgresql_flexible_server_database.n8n_db.name
+    DB_POSTGRESDB_PORT                    = "5432"
+    DB_POSTGRESDB_SSL                     = "true"
+    DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED = "false"
+    # Anciennes variables pour compatibilité
+    DB_HOST                    = azurerm_postgresql_flexible_server.pg.fqdn
+    DB_DATABASE                = azurerm_postgresql_flexible_server_database.n8n_db.name
+    DB_PORT                    = "5432"
+    DB_SSL                     = "true"
+    DB_SSL_REJECT_UNAUTHORIZED = "false"
+
+    # Désactive explicitement sqlite
+    DB_SQLITE_VACUUM_ON_STARTUP = "false"
 
     # Configuration Redis pour la queue (valeurs dynamiques)
     QUEUE_BULL_REDIS_HOST = azurerm_redis_cache.redis.hostname
     QUEUE_BULL_REDIS_PORT = tostring(azurerm_redis_cache.redis.ssl_port)
     QUEUE_BULL_REDIS_TLS  = "true"
 
-    # Configuration N8N (l'URL externe sera mise à jour après création de l'ALB)
-    N8N_HOST               = "http://${azurerm_application_load_balancer_frontend.alb_frontend.fully_qualified_domain_name}"
+    # Configuration N8N
+    # Utilise l'IP publique du LoadBalancer directement (l'ALB nécessiterait un HTTPRoute)
+    N8N_HOST               = "4.178.17.26"
+    N8N_PROTOCOL           = "http"
+    N8N_SECURE_COOKIE      = "false" # Désactivé pour dev-test (HTTP sans SSL)
     N8N_INTERNAL_HOST      = "http://n8n-service.${kubernetes_namespace.n8n.metadata[0].name}.svc.cluster.local:5678"
     N8N_WORKER_CONCURRENCY = "5"
+
+    # Offload manuel executions vers workers (recommandé)
+    OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS = "true"
 
     # Timezone
     GENERIC_TIMEZONE = "Europe/Paris"
@@ -54,15 +71,18 @@ resource "kubernetes_secret" "n8n_secrets" {
   type = "Opaque"
 
   data = {
-    # Credentials PostgreSQL
-    DB_USER     = base64encode(azurerm_postgresql_flexible_server.pg.administrator_login)
-    DB_PASSWORD = base64encode(azurerm_key_vault_secret.pg_password.value)
+    # Credentials PostgreSQL (Kubernetes décode automatiquement base64)
+    DB_POSTGRESDB_USER     = azurerm_postgresql_flexible_server.pg.administrator_login
+    DB_POSTGRESDB_PASSWORD = azurerm_key_vault_secret.pg_password.value
+    # Anciennes variables pour compatibilité
+    DB_USER     = azurerm_postgresql_flexible_server.pg.administrator_login
+    DB_PASSWORD = azurerm_key_vault_secret.pg_password.value
 
-    # Credentials Redis
-    QUEUE_BULL_REDIS_PASSWORD = base64encode(azurerm_redis_cache.redis.primary_access_key)
+    # Credentials Redis (Kubernetes décode automatiquement base64)
+    QUEUE_BULL_REDIS_PASSWORD = azurerm_redis_cache.redis.primary_access_key
 
     # Clé de chiffrement N8N (depuis variable ou générée si vide)
-    N8N_ENCRYPTION_KEY = base64encode(var.n8n_encryption_key != "" ? var.n8n_encryption_key : random_password.n8n_encryption_key.result)
+    N8N_ENCRYPTION_KEY = var.n8n_encryption_key != "" ? var.n8n_encryption_key : random_password.n8n_encryption_key.result
   }
 
   depends_on = [

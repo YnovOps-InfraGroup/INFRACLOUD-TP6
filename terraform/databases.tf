@@ -27,6 +27,13 @@ resource "azurerm_postgresql_flexible_server" "pg" {
   private_dns_zone_id           = azurerm_private_dns_zone.pg_private_dns.id
 }
 
+# Désactiver l'exigence SSL pour le réseau privé (temporaire pour debug)
+resource "azurerm_postgresql_flexible_server_configuration" "require_secure_transport" {
+  name      = "require_secure_transport"
+  server_id = azurerm_postgresql_flexible_server.pg.id
+  value     = "off"
+}
+
 resource "azurerm_postgresql_flexible_server_database" "n8n_db" {
   name      = "n8n_db"
   server_id = azurerm_postgresql_flexible_server.pg.id

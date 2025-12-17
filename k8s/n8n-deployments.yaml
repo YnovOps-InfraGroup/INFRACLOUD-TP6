@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: n8n
-        image: REPLACE_IMAGE_WITH_ACR_PATH:TAG
+        image: acrn8ntf8332.azurecr.io/n8n-custom:f36c63f85eeb3f9a9ff3211f3e39339e09e9b4ba
         ports:
         - containerPort: 5678
         
@@ -70,7 +70,7 @@ spec:
     spec:
       containers:
       - name: n8n
-        image: REPLACE_IMAGE_WITH_ACR_PATH:TAG
+        image: acrn8ntf8332.azurecr.io/n8n-custom:f36c63f85eeb3f9a9ff3211f3e39339e09e9b4ba
         ports:
         - containerPort: 5678
         
