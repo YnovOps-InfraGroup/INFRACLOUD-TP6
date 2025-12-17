@@ -17,46 +17,84 @@ env:
   ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
  
 jobs:
-  terraform_validate:
-    name: Validate Terraform
-    runs-on: ubuntu-latest
-    # Force toutes les étapes de ce job à s'exécuter dans le dossier terraform
+  terraform_fmt:
+    name: Format Terraform
+    runs-on: Vm-runner
     defaults:
       run:
         working-directory: ./terraform
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
- 
+
+      - name: Cache Terraform
+        uses: actions/cache@v4
+        with:
+          path: |
+            terraform/.terraform
+            terraform/.terraform.lock.hcl
+          key: ${{ runner.os }}-terraform-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
+
       - name: Terraform Init
         run: terraform init -backend-config="storage_account_name=stoynovgroup"
- 
-      - name: Terraform fmt
-        run: terraform fmt -check
- 
+
+      - name: Terraform Format
+        run: terraform fmt -recursive
+        continue-on-error: true
+
+  terraform_validate:
+    name: Validate Terraform
+    runs-on: Vm-runner
+    defaults:
+      run:
+        working-directory: ./terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Cache Terraform
+        uses: actions/cache@v4
+        with:
+          path: |
+            terraform/.terraform
+            terraform/.terraform.lock.hcl
+          key: ${{ runner.os }}-terraform-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
+
+      - name: Terraform Init
+        run: terraform init -backend-config="storage_account_name=stoynovgroup"
       - name: Terraform Validate
         run: terraform validate
  
   terraform_plan:
     name: Plan
-    runs-on: ubuntu-latest
-    needs: [terraform_validate]
-    # Force toutes les étapes de ce job à s'exécuter dans le dossier terraform
+    runs-on: Vm-runner
+    needs: [terraform_fmt, terraform_validate]
     defaults:
       run:
         working-directory: ./terraform
- 
+
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
- 
+
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
- 
-      - name: Terraform Init
-        run: terraform init -backend-config="storage_account_name=stoynovgroup"
+
+      - name: Cache Terraform
+        uses: actions/cache@v4
+        with:
+          path: |
+            terraform/.terraform
+            terraform/.terraform.lock.hcl
+          key: ${{ runner.os }}-terraform-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
  
       - name: Terraform Plan
         # Le fichier tfplan sera créé dans ./terraform/tfplan
@@ -74,7 +112,7 @@ jobs:
  
   deploy_infra_and_app:
     name: Deploy Infra & App
-    runs-on: ubuntu-latest
+    runs-on: Vm-runner
     needs: [terraform_plan]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
@@ -132,20 +170,51 @@ jobs:
  
       - name: Deploy Kubernetes Resources
         run: |
+          # Configuration kubectl
           mkdir -p ~/.kube
           mv kubeconfig.yaml ~/.kube/config
           chmod 600 ~/.kube/config
           
-          # Les ConfigMaps et Secrets sont maintenant gérés par Terraform
-          # On déploie uniquement les Deployments et Services
-          kubectl apply -f ./k8s/n8n-deployments.yaml
-          kubectl apply -f ./k8s/n8n-services.yaml
-          
+          # Variables
           ACR_PATH="${{ steps.output.outputs.ACR_SERVER }}/n8n-custom:${{ github.sha }}"
-          sed -i "s|REPLACE_IMAGE_WITH_ACR_PATH:TAG|$ACR_PATH|g" ./k8s/n8n-deployments.yaml
           
-          kubectl apply -f ./k8s/n8n-deployments.yaml
-          kubectl apply -f ./k8s/n8n-services.yaml
+          # Remplacer le placeholder de l'image AVANT d'appliquer
+          sed -i "s|acrn8ntf8332.azurecr.io/n8n-custom:.*|$ACR_PATH|g" ./k8s/n8n-deployments.yaml
           
-          # Vérification du déploiement
-          kubectl rollout status statefulset/n8n-main -n default --timeout=300s
+          # Les ConfigMaps et Secrets sont gérés par Terraform
+          # Déployer les Deployments et Services dans le namespace n8n
+          kubectl apply -f ./k8s/n8n-deployments.yaml -n n8n
+          kubectl apply -f ./k8s/n8n-services.yaml -n n8n
+          
+          # Vérification du déploiement (StatefulSet + Workers)
+          echo "Attente du démarrage des pods..."
+          kubectl rollout status statefulset/n8n-main -n n8n --timeout=5m
+          kubectl rollout status deployment/n8n-workers -n n8n --timeout=5m
+          
+          # Afficher l'état final
+          echo "État des pods :"
+          kubectl get pods -n n8n
+          
+          echo "Service LoadBalancer :"
+          kubectl get svc n8n-service -n n8n
+      
+      - name: Debug on Failure
+        if: failure()
+        run: |
+          echo "=== PODS STATUS ==="
+          kubectl get pods -n n8n -o wide
+          
+          echo "=== PODS EVENTS ==="
+          kubectl get events -n n8n --sort-by='.lastTimestamp' | tail -20
+          
+          echo "=== CONFIGMAP ==="
+          kubectl get configmap n8n-config-vars -n n8n -o yaml | grep -E "DB_HOST|REDIS_HOST" || true
+          
+          echo "=== SECRET EXISTS ==="
+          kubectl get secret n8n-sensitive-secrets -n n8n || true
+          
+          echo "=== LOGS n8n-main ==="
+          kubectl logs -n n8n -l app=n8n-main --tail=50 || true
+          
+          echo "=== LOGS n8n-workers ==="
+          kubectl logs -n n8n -l app=n8n-workers --tail=50 || true

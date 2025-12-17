@@ -8,6 +8,11 @@ Terraform/.terraform/providers/*
 ssh/id_rsa
 *ssh*
 
+# Environment variables
+.env
+*.env
+!.env.example
+
 # .tfstate files
 *.tfstate
 *.tfstate.*
@@ -42,3 +47,7 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Ignore Checkov JSON reports (keep .md and .html)
+reports_checkov/*.json
+*report.json
